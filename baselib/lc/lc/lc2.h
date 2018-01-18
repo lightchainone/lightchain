@@ -1,0 +1,21 @@
+#ifndef _LC2_H
+#define _LC2_H
+#include "comatomic.h"
+#include "eventtools.h"
+#include "iequeue.h"
+#include "ievent.h"
+#include "ireactor.h"
+#include "lockequeue.h"
+#include "netreactor.h"
+#include "threadmg.h"
+#include "lcatomic.h"
+#include "lccore.h"
+#include "lcevent.h"
+#include "lcinlog.h"
+#include "lcioc.h"
+#include "lclock.h"
+#include "lcnshead.h"
+#include "lctask.h"
+#include "lctimer.h"
+#include "lcutils.h"
+#endif
