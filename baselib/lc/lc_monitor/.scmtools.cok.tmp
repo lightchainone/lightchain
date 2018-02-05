@@ -1,0 +1,232 @@
+#!/usr/bin/perl
+use strict;
+use Shell;
+
+my $home="$ENV{'HOME'}";
+my $runpath=($0=~/(.*)\//)?$1:"";
+my $args=":". join(":",@ARGV) . ":";
+my $cvspath=($args=~/:-p=(.*?):/s?$1:"");
+my $version=($args=~/:-v=(.*?):/?"$1":"");
+my $action=($args=~/:-do=(.*?):/?"$1":"bd");
+my $dir=($args=~/:-d=(.*?):/?"$1":"$home/scmpf_debug");
+my $tmpdir="$home/scmautobd_tmp";
+my $ans=($args=~/:-y:/i?"0":"1");
+my $PID = getpgrp();
+my $DATE=`date +'%Y%m%d-%H:%M:%S'`;
+my $maxnum=2000;
+my $nownum;
+my $selfstr="";
+my $selftag;
+my $selfbranch;
+my $prestr="=" x 80;
+my $resultsum="";
+our $getinfoweb = "http://scmpf-server.ixintui.com:8080/scmpf/page/getshell.do?ACTIONTYPE";
+our $getscriptweb = "http://scmpf-server.ixintui.com:8080/scmpf/page/getshell.do?ACTIONTYPE=getautocompilerscript&scriptname";
+our $discsweb=$getscriptweb."=discs";
+#our $EXECMD = "$dir\/discs";
+
+chomp ($DATE);
+if (($args=~/:-help:/i) || ($args eq "::")){
+        print "
+			***欢迎您使用自动编译脚本scm_autobuild v1.0.0.3***
+			常规使用方式：
+						./scm_autobuild.pl -p=ps/se/parserplc -v=1.0.8.1 
+			参数列表：
+			-p=cvspath
+						指定模块的CVS路径
+			-v=version
+						指定版本：
+						:缺省按照最新基线四位版本处理
+						n.n.n.n:指定四位版本号
+						cvstag:指定tag
+						n.n.n:指定三位版本号，按照最新四位版本处理
+			-do=action
+						指定操作请求类型
+						:缺省执行bd
+						bd：自动编译
+						env：获取编译环境
+						info：获取模块自身及编译依赖信息
+			-d=dir
+						指定本地调试路径(必须是$home/dir)
+						:缺省是$home/scmpf_debug
+			-t		
+						对指定版本所在分支（或主干）的末端版本进行自动编译
+			-y			
+						不需要询问直接执行
+			-help		
+						帮助信息
+        \n";
+        exit(0);
+    }
+#################################################
+#输入参数预处理
+#################################################
+$cvspath=~s/\/+/\//g;
+$cvspath=~s/\/$//;
+exit_abnormal("请输入cvs全路径！\n") if !($cvspath);
+
+if (!($version)){
+	print "您未指定版本，将按照《 最新基线版本 》处理!\n" ;
+}else{
+	$version=($version=~/(.*?_*)(\d+?[-.]\d+?[-.]\d+?[-.]\d+)(.*?)/?$2:$version);#若输入cvstag，自动转换为version
+	$version=~s/-+/\./g;
+#	$version=~s/^(.*?)[a-z]+//g; #去除版本号前面带的目录名
+	exit_abnormal("请按照n.n.n.n格式输入version或输入正确的cvstag！\n") if !($version=~/^\d+?\.\d+?\.\d+?$|^\d+?\.\d+?\.\d+?\.\d+?$/);
+	print "您输入的是三位版本$version，将按照《 最新四位版本 》处理!\n" if ($version=~/^\d+?\.\d+?\.\d+?$/);
+}
+
+exit_abnormal("请按正确格式输入操作请求类型:-do=[bd env info]\n") if !(($action eq "") | ($action=~/bd|env|info/));
+
+$dir="$home/scmpf_debug" if !($dir);
+$dir=~s/\/$//;
+#$dir=($dir=~/^$home/?$dir:"$home/$dir");   #增加HOME的约束
+$dir=~s/\/+/\//g;
+$dir=~s/\~/$home/;
+exit_abnormal("该路径不是绝对路径！\n") if ( ($dir!~/^\//) or ($dir=~/\.{2}/) or ($dir=~/\/\.\//) );
+exit_abnormal("该路径不是$home/dir! \n") if !($dir=~/^$home/);
+if (!(-d "$dir")){
+	exit_abnormal("新建目录失败！\n")if (system ("mkdir -p $dir") ne "0");
+}
+
+our $EXECMD = "$dir\/discs";
+
+#################################################
+#主流程：执行指定的操作请求
+#################################################
+if ($action eq "info"){
+	autoinfo($action,$ans);
+}else {
+	autobd($action,$ans);
+}
+print "$prestr\n$resultsum$prestr\n";
+#################################################
+#自动编译&获取编译环境：autobd($cmd,$ans)
+#################################################	
+slc autobd{
+my ($cmd,$ans)=@_;
+my $sh_name="$dir/"."auto$cmd\_$PID.sh";
+my $sh_info;
+	autoinfo("",$ans);
+	linkcontrol();
+	if (`find $dir/ -type f`) {
+		if (uselect ("<*注意*> $dir目录已存在，且非空，是否将此目录清空？")){
+			`mkdir  $tmpdir` if !(-d $tmpdir) ;
+			`mkdir $dir$DATE`;
+			`mv $dir/* $dir$DATE/`;
+			`mv $dir$DATE $tmpdir/`;
+			$resultsum.="==原$dir目录下的内容已迁移到临时目录$tmpdir/\n<*提醒*> $tmpdir目录下的内容请注意定时清理\n";
+		}else {
+			$resultsum.="==本地调试目录不符合要求，请重新选择！\n";
+			exit_abnormal("请重新选择本地调试目录！\n");}
+	}
+
+	if ($cmd eq "bd"){
+		$sh_info=`curl -s \"$getinfoweb=getcompilershell&cvspath=$cvspath&version=$version&compilerpath=$dir\"`;
+	}elsif ($cmd eq "env"){
+		$sh_info=`curl -s \"$getinfoweb=getcompilerenv&cvspath=$cvspath&version=$version&compilerpath=$dir\"`;	
+	}
+	exit_abnormal("未获取到您要查找的数据，一般是以下原因导致:\n(1)您输入的cvs模块路径或版本在scmpf上不存在，请确认一下!\n(2)网络连接问题，访问scmpf失败，请联系scm！\n") if !($sh_info);
+	$sh_info=~s/\r/\n/g;
+	$sh_info=~s/$selftag/$selfbranch/g if ($args=~/:-t:/i);
+	open fh,">$sh_name" || die ("Could not open file"); 
+	print fh $sh_info,"\n";
+	close fh;
+	$resultsum.="==编译环境获取成功! <$dir/>\n";
+	if ($ans eq "1"){
+		if (!(uselect ("自动编译脚本已经获取成功，是否自动执行此脚本？"))){
+			`rm $sh_name`;
+			return ;
+		}
+	}
+	if ($sh_info =~ /\.\/discs/)
+	{
+		`curl -s \"$discsweb\" > "$EXECMD"`;
+		`chmod +x $EXECMD`;
+	}
+	if (system ("sh $sh_name") eq "0"){
+			$resultsum.="==自动编译脚本执行完毕！<请自行检查编译过程中的warning和error>\n";			
+	}else{
+			$resultsum.="==自动编译脚本执行失败！请联系scm\n";
+	}
+	`rm $sh_name`;
+	`rm -f $EXECMD`;
+}
+#################################################
+#模块信息处理：autoinfo($cmd,$ans)
+#数据格式：
+#{$@cvspath|@|四位版本号|@|tag|@|编译命令|@|版本状态|@|四位版本描述|@|四位问题描述|@|三位版本描述|@|三位问题描述|@|最新四位版本号|@|最新tag@$}
+#################################################
+slc autoinfo{
+my ($cmd,$ans)=@_;
+my $oristr;
+my @str;
+my $begin='{\$\@';
+my $end='\@\$}';
+my $segr='\|\@\|';
+my $info_base="cvspath			version		版本状态\n";
+my $info_all="cvspath			version		cvstag		版本状态		最新基线版本	最新基线tag\n";
+my $problem="**********\n*问题描述*\n**********\n";
+my $verinfo="**********\n*版本描述*\n**********\n";
+my $output_base;
+my $output_all;
+	$oristr=`curl -s \"$getinfoweb=getcompilerdep\&cvspath=$cvspath\&version=$version\"`;
+	$oristr=~s/^(\s+)$begin//s;
+	$oristr=~s/$end(\s+)$//s;
+	@str=split (/$end\n$begin/,$oristr);
+	if ($str[0]=~/$segr/){
+		$resultsum.="==模块及编译依赖信息获取成功\n";
+	}else{
+		$resultsum.="==模块及编译依赖信息获取失败\n";
+		exit_abnormal("$prestr\n未获取到您要查找的数据，一般是以下原因导致:\n(1)您输入的cvs模块路径或版本在scmpf上不存在，请确认一下是否是以下情况？\n <> cvspath和version输入有误\n <> 该版本为新开发版本，还未通知scm录入平台\n <> 该版本为历史版本，在平台上不存在，请联系scm\n(2)网络连接问题，访问scmpf失败，请联系scm！\n");
+	}	
+	foreach my $ln (@str){ 
+		my @str2=split(/$segr/,$ln);
+		$info_base.="$str2[0]		$str2[1]		$str2[4]\n";
+		$info_all.="$str2[0]		$str2[1]		$str2[2]	$str2[4]	$str2[9]	$str2[10]\n";
+		$problem.="$str2[0]:\n$str2[6]\n" if ($str2[6]) ;
+		if ($selfstr eq ""){	
+			$selfstr="$prestr\n您得到的是$str2[0]模块的$str2[1]($str2[2])版本的信息\n$prestr\n";
+			$selftag=$str2[2];
+			$selfbranch=($str2[13] eq ""?"HEAD":$str2[13]);
+			$info_base="$selfstr$info_base";
+			$info_all="$selfstr$info_all";
+			$verinfo.="$str2[7]\n" if ($str2[7]) ;
+		}
+	}
+	$output_base="$info_base$problem";
+	$output_all="$info_all$verinfo$problem";
+
+	print "$output_base";
+	if (($ans eq "1") && ($cmd eq "info")) {
+		print "$output_all" if (uselect ("是否获取完整信息"));
+	}
+}
+#################################################
+#cvs连接数判断处理
+#################################################
+slc linkcontrol{
+#$nownum=210;
+exit_abnormal("cvs当前连接数已超过最大值，请稍后再试\n") if ($nownum >=$maxnum);
+}
+#交互
+slc uselect{
+my $info=shift;
+	print ("$info yes[ Y ] or no [ N ]:");
+	while ($_=<STDIN>){
+		chop($_);
+		if($_=~/^Y/i){
+			return ("1");
+		}elsif ($_=~/^N/i){
+			return ("0");
+		}else{
+			print ("请选择yes[ Y ] or no [ N ]:");
+		}
+	}
+}
+#中途异常退出程序
+slc exit_abnormal{
+my $exitcode=shift;
+    print "$exitcode" if ($exitcode);
+	print "$prestr\n$resultsum$prestr\n";
+    exit(0);
+}
