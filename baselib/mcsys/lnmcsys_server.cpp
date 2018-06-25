@@ -5,6 +5,51 @@
 #include "redis_data.h"
 
 using namespace lnsys;
+int LnmcsysServlet::verify_channel(const idm::VsPusherLnmcsys_verify_channel_params &in, 
+        idm::VsPusherLnmcsys_verify_channel_response &out)
+{
+    lc_timer_t timer;
+    lc_timer_init(&timer);
+
+    idm::verify_channel_res_t* outres = out.m_result_params()->m_verify_channel_res(); 
+    
+    char in_out_log[EXCEPTION_STR_MAX_LEN];
+    in_out_log[0] = 0x00;
+    uint64_t  retKey;
+
+    FUNC_START
+    const idm::verify_channel_req_t &req_params = in.verify_channel_req();
+    uint64_t  chainkey = req_params.chainkey();
+    const char *deviceid = req_params.deviceid();
+    uint32_t bs_id = req_params.bs_id();
+    uint8_t third_sys_type = req_params.third_sys_type(); 
+    snprintf(in_out_log, sizeof(in_out_log),
+            "service: %s, device_id: %s, chainkey: %lu ,bs_id:%u",
+            __FUNCTION__, deviceid, chainkey,bs_id);
+
+    ASSERT_SYS(0 != chainkey ,"error req chainkey is 0");
+    ASSERT_SYS(NULL !=  deviceid ,"error req deviceid is NULL ");
+
+    TRACE("START SERVICE params[%s].", in_out_log);
+
+    LnmcsysHandler::verify_channel_chainkey_id(this, third_sys_type,deviceid,chainkey,bs_id,retKey,req_params.chain_info_list(), outres);
+
+    FUNC_END(TRACE, WARNING)
+
+    int result = LNSYS_E_OK;
+    FUNC_GET_ERROR(result);
+    out.m_result_params()->m_verify_channel_res()->set_result(result);
+    out.m_result_params()->m_verify_channel_res()->set_key(retKey);
+    if(LNSYS_E_OK == result)
+    {
+        TRACE("SUCC END SERVICE params[%s] results[result: %d].", in_out_log, result);
+    }
+    else
+    {
+        WARNING("FAIL END SERVICE params[%s] results[result: %d]", in_out_log, result);
+    }
+    return LNSYS_E_OK;
+}
 
 int LnmcsysServlet::mc_register_chain(const idm::VsPusherLnmcsys_mc_register_chain_params &in, 
         idm::VsPusherLnmcsys_mc_register_chain_response &out) {
@@ -56,6 +101,50 @@ int LnmcsysServlet::mc_register_chain(const idm::VsPusherLnmcsys_mc_register_cha
     return STATUS_OK;
 }
 
+int LnmcsysServlet::register_chain(const idm::VsPusherLnmcsys_register_chain_params &in, 
+        idm::VsPusherLnmcsys_register_chain_response &out) {
+
+    
+    char in_out_log[EXCEPTION_STR_MAX_LEN];
+    in_out_log[0] = 0x00; 
+    time_t cur_time;
+    time(&cur_time);
+
+    unsigned int chainkey_invalid_time=_lnmcsys_conf->chainkey_invalid_timeout;
+    time_t expired_time=cur_time+chainkey_invalid_time;
+    uint64_t chainkey=0;  
+    FUNC_START
+    const idm::register_chain_req_t &req_params = in.register_chain_req();
+    const char *deviceid = req_params.deviceid();
+    const idm::vector<uint32_t> chainids=req_params.chainid();
+    ASSERT_PARAM(NULL!=deviceid,"deviceid is NULL");
+    if(req_params.has_chainkey()){
+        chainkey = req_params.chainkey();
+    }
+
+    idm::register_chain_res_t  *register_chain_res = 
+        out.m_result_params()->m_register_chain_res();
+    LnmcsysHandler::save_channel_chainkey(this,deviceid,_lnmcsys_conf->customer_id,chainkey,cur_time,chainids, register_chain_res);
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    out.m_result_params()->m_register_chain_res()->set_result(result);
+    if(STATUS_OK==result){
+        out.m_result_params()->m_register_chain_res()->set_chainkey(chainkey);
+       
+
+        TRACE("SUCC END SERVICE params[%s] results[result: %d,  chainkey: %lu, expired_time: %ld].", 
+              in_out_log,result,chainkey, expired_time);
+    }else{
+
+        WARNING("FAIL END SERVICE params[%s] results[result: %d,  chainkey: %lu, expired_time: %ld].", 
+                in_out_log,result,chainkey, expired_time);
+    }
+
+    return STATUS_OK;
+
+}
 
 int LnmcsysServlet::get_target_mcinfos(const idm::VsPusherLnmcsys_get_target_mcinfos_params& in,
                                           idm::VsPusherLnmcsys_get_target_mcinfos_response& out)
