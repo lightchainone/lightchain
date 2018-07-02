@@ -146,6 +146,141 @@ int LnmcsysServlet::register_chain(const idm::VsPusherLnmcsys_register_chain_par
 
 }
 
+int LnmcsysServlet::amc_add_chain(const idm::VsPusherLnmcsys_amc_add_chain_params& in, 
+        idm::VsPusherLnmcsys_amc_add_chain_response& out){
+    idm::amc_add_chain_res_t* res = out.m_result_params()->m_amc_add_chain_res();
+    const idm::amc_add_chain_req_t& req = in.amc_add_chain_req();
+    const idm::vector<uint32_t>& req_chainlist = req.chainlist();
+
+    FUNC_START
+    LnmcsysHandler::amc_add_chain(this,req.chainkey(), req_chainlist);
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    idm::vector<uint32_t>* chainlist = res->m_add_chainlist();
+    for(uint32_t i=0; i<req_chainlist.size();++i){
+        chainlist->sys_back(req_chainlist[i]);
+    }
+    return STATUS_OK;
+}
+
+int LnmcsysServlet::bind_alias(const idm::VsPusherLnmcsys_bind_alias_params& in,
+                                          idm::VsPusherLnmcsys_bind_alias_response& out)
+{
+    idm::bind_alias_res_t* res = out.m_result_params()->m_bind_alias_res();
+
+    FUNC_START
+
+    const idm::bind_alias_req_t& req = in.bind_alias_req();
+    LnmcsysHandler::bind_alias(this,req.chainkey(), req.chainid(), req.alias_name());
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    return STATUS_OK;
+}
+
+int LnmcsysServlet::unbind_alias(const idm::VsPusherLnmcsys_unbind_alias_params& in,
+                                          idm::VsPusherLnmcsys_unbind_alias_response& out)
+{
+    idm::unbind_alias_res_t* res = out.m_result_params()->m_unbind_alias_res();
+
+    FUNC_START
+
+    const idm::unbind_alias_req_t& req = in.unbind_alias_req();
+    LnmcsysHandler::unbind_alias(this,req.chainkey(), req.chainid(), req.alias_name(), req.unbind_all());
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    return STATUS_OK;
+}
+
+int LnmcsysServlet::mc_bind_alias(const idm::VsPusherLnmcsys_mc_bind_alias_params &in, 
+        idm::VsPusherLnmcsys_mc_bind_alias_response &out)
+{
+    idm::mc_bind_alias_res_t* res = out.m_result_params()->m_bind_alias_res();
+
+    FUNC_START
+
+    const idm::mc_bind_alias_req_t& req = in.bind_alias_req();
+    LnmcsysHandler::mc_bind_alias(req.chainkey(), req.chainid(), req.alias_name());
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    return STATUS_OK;
+}
+
+int LnmcsysServlet::mc_set_mc_num(const idm::VsPusherLnmcsys_mc_set_mc_num_params &in, 
+        idm::VsPusherLnmcsys_mc_set_mc_num_response &out)
+{
+    idm::mc_set_mc_num_res_t* res = out.m_result_params()->m_set_mc_num_res();
+
+    FUNC_START
+
+    const idm::mc_set_mc_num_req_t& req = in.set_mc_num_req();
+    LnmcsysHandler::mc_set_mc_num(req.chainkey(), req.chainid(), req.mc_num());
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    return STATUS_OK;
+}
+
+
+int LnmcsysServlet::mc_unbind_alias(const idm::VsPusherLnmcsys_mc_unbind_alias_params &in, 
+        idm::VsPusherLnmcsys_mc_unbind_alias_response &out)
+{
+    idm::mc_unbind_alias_res_t* res = out.m_result_params()->m_unbind_alias_res();
+
+    FUNC_START
+    const idm::mc_unbind_alias_req_t& req = in.unbind_alias_req();
+    LnmcsysHandler::mc_unbind_alias(req.chainkey(), req.chainid(), req.alias_name());
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    return STATUS_OK;
+}
+
+int LnmcsysServlet::mc_add_tag(const idm::VsPusherLnmcsys_mc_add_tag_params &in, 
+        idm::VsPusherLnmcsys_mc_add_tag_response &out){
+
+    idm::mc_add_tag_res_t* res = out.m_result_params()->m_mc_add_tag_res();
+    FUNC_START
+    const idm::mc_add_tag_req_t& req = in.mc_add_tag_req();
+    LnmcsysHandler::mc_add_tag(req);
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    return STATUS_OK;
+}
+
+int LnmcsysServlet::mc_delete_tag(const idm::VsPusherLnmcsys_mc_delete_tag_params &in, 
+        idm::VsPusherLnmcsys_mc_delete_tag_response &out)
+{
+    idm::mc_delete_tag_res_t* res = out.m_result_params()->m_mc_delete_tag_res();
+    FUNC_START
+    const idm::mc_delete_tag_req_t& req = in.mc_delete_tag_req();
+    LnmcsysHandler::mc_delete_tag(req);
+    FUNC_END(TRACE, WARNING)
+
+    int result = STATUS_OK;
+    FUNC_GET_ERROR(result)
+    res->set_result(result);
+    return STATUS_OK;
+}
+
 int LnmcsysServlet::get_target_mcinfos(const idm::VsPusherLnmcsys_get_target_mcinfos_params& in,
                                           idm::VsPusherLnmcsys_get_target_mcinfos_response& out)
 {
