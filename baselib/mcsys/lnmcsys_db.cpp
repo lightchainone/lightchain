@@ -119,6 +119,83 @@ namespace lnsys
     
     
     
+    MyclientRes &LnmcsysDb::query(const char *sql, ...)
+    {
+        
+        va_list p;
+        va_start(p, sql);
+        vsnprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, sql, p);
+        va_end(p);
+
+        std::string _sql = _sql_buf;
+        std::string pattern;
+        pattern = "${TABLE_NO}";
+        _pre_process_sql(_sql, pattern, _table_no);
+        pattern = "$TABLE_NO";
+        _pre_process_sql(_sql, pattern, _table_no);
+        snprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, "%s", _sql.c_str());
+        return _query(NULL);
+    }
+
+    
+    
+    
+    MyclientRes &LnmcsysDb::query(int &affect_row, const char *sql, ...)
+    {
+        va_list p;
+        va_start(p, sql);
+        vsnprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, sql, p);
+        va_end(p);
+
+        std::string _sql = _sql_buf;
+        std::string pattern;
+        pattern = "${TABLE_NO}";
+        _pre_process_sql(_sql, pattern, _table_no);
+        pattern = "$TABLE_NO";
+        _pre_process_sql(_sql, pattern, _table_no);
+        snprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, "%s", _sql.c_str());
+        return _query(&affect_row);
+    }
+
+    
+    
+    
+    MyclientRes &LnmcsysDb::query_nothrow(const char *sql, ...)
+    {
+        va_list p;
+        va_start(p, sql);
+        vsnprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, sql, p);
+        va_end(p);
+
+        std::string _sql = _sql_buf;
+        std::string pattern = "${TABLE_NO}";
+        _pre_process_sql(_sql, pattern, _table_no);
+        pattern = "$TABLE_NO";
+        _pre_process_sql(_sql, pattern, _table_no);
+        snprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, "%s", _sql.c_str());
+        return _query_nothrow(NULL);
+    }
+
+    
+    
+    
+    MyclientRes &LnmcsysDb::query_nothrow(int &affect_row, const char *sql, ...)
+    {
+        va_list p;
+        va_start(p, sql);
+        vsnprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, sql, p);
+        va_end(p);
+
+        std::string _sql = _sql_buf;
+        std::string pattern = "${TABLE_NO}";
+        _pre_process_sql(_sql, pattern, _table_no);
+        pattern = "$TABLE_NO";
+        _pre_process_sql(_sql, pattern, _table_no);
+        snprintf(_sql_buf, LNMCSYS_MAX_LEN_MYSQL_BUF, "%s", _sql.c_str());
+        return _query_nothrow(&affect_row);
+    }
+
+    
 }
 
 
