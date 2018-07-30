@@ -196,6 +196,67 @@ namespace lnsys
     }
 
     
+    
+    
+    char *LnmcsysDb::escape_strings(unsigned int num, ...)
+    {
+        _escape_buf[0] = 0x00;
+        va_list ap;
+        va_start(ap, num);
+        char *start = _escape_buf;
+        long long left = LNMCSYS_MAX_LEN_MYSQL_ESCAPE_BUF;
+        for(unsigned int i = 0; i < num; i++)
+        {
+            const char *str = va_arg(ap, const char *);
+            long long now_len = strlen(str);
+            ASSERT_PARAM(left >= static_cast<long long>(now_len * 2 + 1), 
+                    "invalid param too long, escape buffer was used up [now_str: %s, now_str_len: %lld, "
+                    "escape_buffer_left: %lu]", str, now_len, left);
+            int ret = _mysql_conn->escapeString(start, str, static_cast<unsigned long>(left), now_len);
+            ASSERT_MYSQL(ret >= 0, "escape string failed [mysql_conn: %p, str: %s, ret: %d]", _mysql_conn, str, ret);
+            DEBUG("%s succ [str: %s, result: %s]", __FUNCTION__, str, start);
+            long long offset = strlen(start) + 1;
+            left = left - offset;
+            start = start + offset;
+        }
+        va_end(ap);
+        return _escape_buf;
+    }
+
+    char *LnmcsysDb::escape_binary(const void *src, const uint32_t size)
+    {
+        _escape_buf[0] = 0x00;
+        char *start = _escape_buf;
+        
+        ASSERT_PARAM(LNMCSYS_MAX_LEN_MYSQL_ESCAPE_BUF >= static_cast<long long>(size * 2 + 1), "invalid param too long, escape buffer was used up[now_src_len: %u, escape_buffer_len: %lld]", size, LNMCSYS_MAX_LEN_MYSQL_ESCAPE_BUF);
+        
+        int ret = _mysql_conn->escapeString(start, static_cast<const char *>(src), LNMCSYS_MAX_LEN_MYSQL_ESCAPE_BUF, size);
+
+        ASSERT_MYSQL(ret >= 0, "escape string failed [mysql_conn: %p, ret: %d]", _mysql_conn, ret);
+        DEBUG("%s succ [result: %s]", __FUNCTION__, start);
+
+        
+        return _escape_buf;
+    }
+
+    
+    
+    
+    int LnmcsysDb::_pre_process_sql(std::string& sql, const std::string& tb_no_pattern, unsigned long long table_no)
+    {
+        int count = 0;
+        char table_no_buf[21];
+        snprintf(table_no_buf, sizeof(table_no_buf), "%llu", table_no);
+        std::string tb_no = table_no_buf;
+        const size_t nsize = tb_no.size();
+        const size_t psize = tb_no_pattern.size();
+        for(size_t pos = sql.find(tb_no_pattern, 0); pos != std::string::npos; pos = sql.find(tb_no_pattern, pos + nsize))
+        {   
+            sql.replace(pos, psize, tb_no);
+            count++;
+        }
+        return count;
+    }
 }
 
 
