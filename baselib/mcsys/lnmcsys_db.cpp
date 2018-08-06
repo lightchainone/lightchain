@@ -257,6 +257,61 @@ namespace lnsys
         }
         return count;
     }
+
+    MyclientRes &LnmcsysDb::_query(int *affect_row)
+    {
+        _res->free();
+        int ret = _mysql_worker->query(_res, _mysql_conn, _sql_buf);
+        if(ret < 0)
+        {
+            _re_conn = true; 
+            _sql_buf[0] = 0x00;
+            THROW_MYSQL("execute sql failed [ret: %d]", ret);
+        }
+        DO_IF(NULL != affect_row, *affect_row = ret);
+        TRACE("%s succ [affect_row: %d].", __FUNCTION__, ret);
+        _sql_buf[0] = 0x00;
+        return *_res;
+    }
+
+    
+    
+    
+    MyclientRes &LnmcsysDb::_query_nothrow(int *affect_row)
+    {
+        _res->free();
+        int ret = _mysql_worker->query(_res, _mysql_conn, _sql_buf);
+        DO_IF(0 > ret, WARNING("execute sql failed, will reset LnmcsysDb [ret: %d]", ret), _sql_buf[0] = 0x00, _reset(true, false));
+        DO_IF(NULL != affect_row, *affect_row = ret);
+        DO_IF(0 <= ret, TRACE("%s succ [affect_row: %d].", __FUNCTION__, ret), _sql_buf[0] = 0x00);
+        return *_res;
+    }
+
+    
+    
+    
+    unsigned long long LnmcsysDb::_get_table_no()
+    {
+        unsigned long long table_no = 0;
+        if(LNMCSYS_DB_TYPE_ID == _db_type)
+        {
+            table_no = _id % (_tb_num * _db_num) % _tb_num;
+            return table_no;
+        }
+        if(LNMCSYS_DB_TYPE_TAG == _db_type)
+        {
+            table_no = sign64(_tag, strlen(_tag)) % (_tb_num * _db_num) % _tb_num;
+            return table_no;
+        }
+        if ( LNMCSYS_DB_TYPE_DBID == _db_type) 
+        {
+            
+            return 0;
+        }
+        THROW_SYS("invalid database type [db_type: %u]", _db_type);
+        return 0; 
+    }
+
 }
 
 
