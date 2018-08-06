@@ -258,6 +258,9 @@ namespace lnsys
         return count;
     }
 
+    
+    
+    
     MyclientRes &LnmcsysDb::_query(int *affect_row)
     {
         _res->free();
@@ -312,6 +315,41 @@ namespace lnsys
         return 0; 
     }
 
+
+    
+    
+    
+    void LnmcsysDb::_reset(bool re_conn, bool commit)
+    {
+        
+        end_transaction(commit);
+        
+        _release_connection(re_conn);
+        
+        if(LNMCSYS_DB_TYPE_ID == _db_type)
+        {
+            _mysql_conn = _mysql_worker->get_connection_by_id(_id, _conn_to);
+            ASSERT_MYSQL(NULL != _mysql_conn, "refetch mysql connection by id failed [id: %llu, conn_to: %u]", _id, _conn_to);
+        }
+        else if(LNMCSYS_DB_TYPE_TAG == _db_type)
+        {
+            _mysql_conn = _mysql_worker->get_connection(_tag, _conn_to);
+            ASSERT_MYSQL(NULL != _mysql_conn, "refetch mysql connection by tag failed [tag: %s, conn_to: %u]", _tag, _conn_to);
+        }
+        else if (LNMCSYS_DB_TYPE_DBID == _db_type) 
+        {
+            _mysql_conn = _mysql_worker->get_connection(_id, _conn_to);
+            ASSERT_MYSQL(NULL != _mysql_conn, "refetch mysql connection by tag failed [tag: %s, conn_to: %u]", _tag, _conn_to); 
+        }
+        else
+        {
+            THROW_SYS(false, "refetch connection failed, no db_type [db_type: %u]", _db_type);
+        }
+        DEBUG("%s succ [re_conn: %s, commit: %s].", __FUNCTION__, re_conn ? "true" : "false", commit ? "true" : "false");
+    }
+    
+
+    
 }
 
 
