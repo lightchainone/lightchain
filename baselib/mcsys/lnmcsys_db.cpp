@@ -350,6 +350,124 @@ namespace lnsys
     
 
     
+    
+    
+    void LnmcsysDb::start_transaction()
+    {
+        
+        end_transaction(false);
+        
+        _res->free();
+        int ret = _mysql_worker->query(_res, _mysql_conn, "START TRANSACTION");
+        if(0 > ret)
+        {
+            _re_conn = true;
+            THROW_MYSQL("start transaction failed [mysql_conn: %p, ret: %d]", _mysql_conn, ret);
+        }
+        _transaction_on = true;
+        DEBUG("%s succ [mysql_conn: %p].", __FUNCTION__, _mysql_conn);
+    }
+
+    
+    
+    
+    void LnmcsysDb::end_transaction(bool commit)
+    {
+        if(true == _transaction_on)
+        {
+            char sql[128];
+            if(commit)
+            {
+                SNPRINTF(sql, "%s", "COMMIT");
+            }
+            else
+            {   
+                SNPRINTF(sql, "%s", "ROLLBACK");
+            }
+            _res->free();
+            int ret = _mysql_worker->query(_res, _mysql_conn, sql);
+            if(0 > ret)
+            {
+                _re_conn = true;
+                _transaction_on = false; 
+                FATAL("end transaction failed, may be database is abnormal [sql: %s, ret: %d].", sql, ret);
+            }
+            _transaction_on = false;
+            DEBUG("%s succ [mysql_conn: %p, commit: %s].", __FUNCTION__, _mysql_conn, commit ? "true" : "false");
+        }
+    }
+
+    
+    
+    
+    void LnmcsysDb::_release_connection(bool re_conn)
+    {
+        if(NULL != _mysql_conn && LNMCSYS_DB_TYPE_ID == _db_type)
+        {
+            DEBUG("free mysql connection by ID [mysql_conn: %p, id: %llu, re_conn: %u]", _mysql_conn, _id, re_conn);
+            _mysql_worker->put_back_connection_by_id(_mysql_conn, _id, _re_conn);
+        }
+        else if(NULL != _mysql_conn && LNMCSYS_DB_TYPE_TAG == _db_type)
+        {
+            DEBUG("free mysql connection by TAG [mysql_conn: %p, tag: %s, re_conn: %u]", _mysql_conn, _tag, re_conn);
+            _mysql_worker->put_back_connection(_mysql_conn, _tag, _re_conn);
+        }
+        else if ( NULL != _mysql_conn && LNMCSYS_DB_TYPE_DBID == _db_type ) 
+        {
+            DEBUG("free mysql connection by TAG [mysql_conn: %p, tag: %s, re_conn: %u]", _mysql_conn, _tag, re_conn);
+            _mysql_worker->put_back_connection(_mysql_conn, _id, _re_conn);
+
+        }
+        DEBUG("%s connection succ [mysql_conn: %p], re_conn: %s.", __FUNCTION__, _mysql_conn, re_conn ? "true" : "false");
+        _mysql_conn = NULL;
+    }
+
+    
+    
+    
+    void LnmcsysDb::_destroy(bool re_conn, bool commit)
+    {
+        
+        end_transaction(commit);
+        
+        _release_connection(re_conn);
+        
+        DO_IF(NULL != _sql_buf, _sql_buf[0] = 0x00);
+        DO_IF(NULL != _escape_buf, _escape_buf[0] = 0x00);
+        DO_IF(NULL != _res, _res->free());
+        
+        _clean_member();
+    }
+    
+    
+    
+    
+    LnmcsysDb::~LnmcsysDb()
+    {
+        
+        
+        _destroy(_re_conn, false);
+        DEBUG("destroy RegisteDb succ [re_conn: %s, commit: false]", _re_conn ? "true" : "false");
+    }
+
+    
+    
+    
+    void LnmcsysDb::_clean_member()
+    {
+        _table_no = 0;
+        _mysql_conn = NULL;
+        _mysql_worker = NULL;
+        _db_type = LNMCSYS_DB_TYPE_INVALID;
+        _tag[0] = 0x00;
+        _id = 0;
+        _res = NULL;
+        _sql_buf = NULL;
+        _escape_buf = NULL;
+        _re_conn = false;
+        _conn_to = 0;
+        _transaction_on = false;
+    }
 }
 
 
