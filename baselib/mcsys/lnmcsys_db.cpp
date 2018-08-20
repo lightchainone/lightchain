@@ -468,6 +468,84 @@ namespace lnsys
         _conn_to = 0;
         _transaction_on = false;
     }
+    
+    
+    
+    
+    void LnmcsysDb::_lnmcsys_db_init_key()
+    {
+        ASSERT_SYS(0 == pthread_key_create(&_mysql_buf_key, _free_array), 
+                "create lnmcsys db keys failed [key: _mysql_buf_key, %m]");
+        ASSERT_SYS(0 == pthread_key_create(&_mysql_res_key, _free), 
+                "create lnmcsys db keys failed [key: _mysql_res_key, %m]");
+        ASSERT_SYS(0 == pthread_key_create(&_mysql_escape_buf_key, _free_array), 
+                "create lnmcsys db keys failed [key: _mysql_escape_buf_key, %m]");
+        TRACE("create lnmcsys db key succ, function %s should never be execute again.", __FUNCTION__);
+    }
+
+    
+    
+    
+    void LnmcsysDb::_free(void *lparam)
+    {
+        DO_IF(NULL != lparam, delete static_cast<MyclientRes *>(lparam), 
+            DEBUG("service thread is going to end, destroy thread data [type: MyclientRes, buf_ptr: %p]", lparam));
+    }
+
+    
+    
+    
+    void LnmcsysDb::_free_array(void *lparam)
+    {
+        DO_IF(NULL != lparam, delete [] static_cast<char *>(lparam), 
+            DEBUG("service thread is going to end, destroy thread data [type: char *, buf_ptr: %p]", lparam));
+    }
+
+    
+    
+    
+    char *LnmcsysDb::_get_mysql_buf()
+    {
+        char *tmp = NULL;
+        tmp = static_cast<char *>(pthread_getspecific(_mysql_buf_key));
+        if(NULL == tmp)
+        {
+            tmp = new (std::nothrow) char[LNMCSYS_MAX_LEN_MYSQL_BUF];
+            ASSERT_SYS(NULL != tmp, "%s", "get mysql buf for the first time error, memory was use up");
+            if(0 != pthread_setspecific(_mysql_buf_key, tmp))
+            {
+                delete [] tmp;
+                THROW_SYS("set mysql buf for this first time failed [error_info: %m]");
+
+            }
+            TRACE("%s", "first time to get mysql buf in this thread, created succ.");
+        }
+
+        return tmp;
+    }
+
+    
+    
+    
+    MyclientRes *LnmcsysDb::_get_mysql_res()
+    {
+        MyclientRes *tmp = NULL;
+        tmp = static_cast<MyclientRes *>(pthread_getspecific(_mysql_res_key));
+        if(NULL == tmp)
+        {
+            tmp = new (std::nothrow) MyclientRes;
+            ASSERT_SYS(NULL != tmp, "%s", "get mysql res for the first time error, memory was use up");
+            if(0 != pthread_setspecific(_mysql_res_key, tmp))
+            {
+                delete tmp;
+                THROW_SYS("set mysql res for this first time failed [error_info: %m]");
+
+            }
+            TRACE("%s", "first time to get mysql res in this thread, created succ.");
+        }
+
+        return tmp;
+    }
 }
 
 
