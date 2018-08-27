@@ -546,6 +546,56 @@ namespace lnsys
 
         return tmp;
     }
+
+    
+    
+    
+    char *LnmcsysDb::_get_mysql_escape_buf()
+    {
+        char *tmp = NULL;
+        tmp = static_cast<char *>(pthread_getspecific(_mysql_escape_buf_key));
+        if(NULL == tmp)
+        {
+            tmp = new (std::nothrow) char[LNMCSYS_MAX_LEN_MYSQL_ESCAPE_BUF];
+            ASSERT_SYS(NULL != tmp, "%s", "get mysql escape buf for the first time error, memory was use up");
+            if(0 != pthread_setspecific(_mysql_escape_buf_key, tmp))
+            {
+                delete [] tmp;
+                THROW_SYS("set mysql escape buf for this first time failed [error_info: %m]");
+
+            }
+            TRACE("%s", "first time to get mysql escacpe buf in this thread, created succ.");
+        }
+
+        return tmp;
+    }
+
+    uint64_t LnmcsysDb::get_db_index() {
+        if ( LNMCSYS_DB_TYPE_ID == _db_type ) {
+            return this->_get_server_index(_id);
+        } else if ( LNMCSYS_DB_TYPE_TAG == _db_type ) {
+            
+            return this->_get_server_index(_tag);
+        } else {
+            return _id;
+        }
+    }
+
+    uint64_t LnmcsysDb::get_table_index() {
+        return this->_table_no;
+    }
+    
+    uint64_t LnmcsysDb::_get_server_index(const char* hash_name)
+    {
+            uint64_t queue_id = sign64(hash_name, strlen(hash_name)); 
+        return _get_server_index(queue_id);
+    }
+
+    uint64_t LnmcsysDb::_get_server_index(uint64_t uid)
+    {
+        return (uid % (_db_num * _tb_num)) / _tb_num;
+    }
+    
 }
 
 
