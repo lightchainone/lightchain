@@ -188,6 +188,7 @@ public:
         return *phashBlock;
     }
 
+
     CDiskBlockPos GetBlockPos() const
     {
 
@@ -472,6 +473,44 @@ public:
         str += strprintf("\n                hashBlock=%s, hashPrev=%s)",
             GetBlockHash().ToString(),
             hashPrev.ToString());
+        return str;
+    }
+};
+
+/** Used to marshal pointers into hashes for db storage. */
+class CDiskSubBlockIndex : public CSubBlockIndex
+{
+public:
+    //uint256 hashPrev;
+
+    CDiskSubBlockIndex() {
+       // hashPrev = uint256();
+    }
+
+    explicit CDiskSubBlockIndex(const CSubBlockIndex* pindex) : CSubBlockIndex(*pindex) {
+        //hashPrev = (pprev ? pprev->GetBlockHash() : uint256());
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        int _nVersion = s.GetVersion();
+        if (!(s.GetType() & SER_GETHASH))
+            READWRITE(VARINT(_nVersion));
+
+        READWRITE(VARINT(nHeight));
+        READWRITE(VARINT(nFile));
+        READWRITE(VARINT(nDataPos));
+    }
+
+    std::string ToString() const
+    {
+        std::string str = "CDiskSubBlockIndex(";
+        str += CSubBlockIndex::ToString();
+        str += strprintf("\n                hashBlock=%s)",
+            GetBlockHash().ToString()
+            );
         return str;
     }
 };

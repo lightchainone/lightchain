@@ -27,7 +27,7 @@ struct commonResponse{
     std::string retErrMsg;
     std::string retDebugInfo;
     std::string retResult;
-    commonResponse():retErrCode(0),retErrMsg(""),retDebugInfo(""),retResult(""){
+    commonResponse():retErrCode(1),retErrMsg(""),retDebugInfo(""),retResult(""){
     }
 };
 
