@@ -1203,7 +1203,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
 
 UniValue getsubchainmetainfo(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() != 0)
+    if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "getsubchainmetainfo\n"
             "Returns an object containing various state info regarding blockchain processing.\n"

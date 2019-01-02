@@ -591,7 +591,7 @@ UniValue commitsubchaininfo(const JSONRPCRequest& request)
     wtxNew.BindWallet(pwallet);
     CValidationState state;
 
-    if(wtxNew.tx->nExtType != EXTDATA_CREATESUBCHAIN && wtxNew.tx->nExtType != EXTDATA_BACKUPSUBBLOCK){
+    if(wtxNew.tx->extData.nExtType != EXTDATA_CREATESUBCHAIN && wtxNew.tx->extData.nExtType != EXTDATA_BACKUPSUBBLOCK){
             throw std::runtime_error("invalid wtxdata's nExtType");
     }
 
@@ -600,7 +600,7 @@ UniValue commitsubchaininfo(const JSONRPCRequest& request)
 	    //bridgeownerverify();
      LogPrintf("\nhere2\n");
      CSubBlock block;
-    if(wtxNew.tx->nExtType == EXTDATA_BACKUPSUBBLOCK){
+    if(wtxNew.tx->extData.nExtType == EXTDATA_BACKUPSUBBLOCK){
      LogPrintf("\nhere1\n");
 	    CDiskBlockPos blockPos;
 	    unsigned int nBlockSize = 0;
@@ -610,7 +610,7 @@ UniValue commitsubchaininfo(const JSONRPCRequest& request)
 	    if(block.subblockdata.size() == 0){
 		    throw std::runtime_error("lack suchainblockdata");
 	    }
-	    extblock = boost::any_cast<CBackupSubBlockExt>(&(wtxNew.tx->extData)); 
+	    extblock = boost::any_cast<CBackupSubBlockExt>(&(wtxNew.tx->extData.data)); 
 
 	    //write subblockdata to file 
 	    block.nHeight =  extblock->subBlockHeight; 
@@ -641,7 +641,7 @@ LogPrintf("h2n\n");
 	    throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }   
  //TODO  send inv message
-    if(wtxNew.tx->nExtType == EXTDATA_BACKUPSUBBLOCK && !block.IsNull()){
+    if(wtxNew.tx->extData.nExtType == EXTDATA_BACKUPSUBBLOCK && !block.IsNull()){
 LogPrintf("RelaySubBlock\n");
 	    RelaySubBlock(block, g_connman.get());
     }
@@ -783,8 +783,8 @@ UniValue gensubchainblock(const JSONRPCRequest& request)
 
     LogPrintf("\nh7\n");
     CMutableTransaction mtx = CMutableTransaction(*wtx.tx);
-    mtx.nExtType = EXTDATA_BACKUPSUBBLOCK;
-    mtx.extData = extdata;
+    mtx.extData.nExtType = EXTDATA_BACKUPSUBBLOCK;
+    mtx.extData.data = extdata;
     wtx.tx = MakeTransactionRef(mtx); 
     const CNetMsgMaker msgMaker(PROTOCOL_VERSION);
     const CSerializedNetMsg& m = msgMaker.Make(SERIALIZE_TRANSACTION_NO_WITNESS, NetMsgType::TX, wtx, reservekey);
@@ -879,8 +879,8 @@ UniValue createsubchaininfo(const JSONRPCRequest& request)
     CReserveKey reservekey(pwallet);
     GenSubChainTransactionInfo(pwallet, address.Get(), nAmount, fSubtractFeeFromAmount, wtx, coin_control, reservekey);
     CMutableTransaction mtx = CMutableTransaction(*wtx.tx);
-    mtx.nExtType = EXTDATA_CREATESUBCHAIN;
-    mtx.extData = extdata;
+    mtx.extData.nExtType = EXTDATA_CREATESUBCHAIN;
+    mtx.extData.data = extdata;
     wtx.tx = MakeTransactionRef(mtx); 
     const CNetMsgMaker msgMaker(PROTOCOL_VERSION);
     const CSerializedNetMsg& m = msgMaker.Make(SERIALIZE_TRANSACTION_NO_WITNESS, NetMsgType::TX, wtx, reservekey);
