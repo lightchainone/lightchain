@@ -4,8 +4,8 @@
 This C source file is part of the SoftFloat IEEE Floating-Point Arithmetic
 Package, Release 3e, by John R. Hauser.
 
-Copyright 2011, 2012, 2013, 2014, 2015, 2016 The Regents of the University of
-California.  All Rights Reserved.
+Copyright 2011, 2012, 2013, 2014, 2015 The Regents of the University of
+California.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,39 +34,76 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "platform.h"
 #include "internals.h"
+#include "specialize.h"
 #include "softfloat.h"
 
 #ifdef SOFTFLOAT_FAST_INT64
 
-void ui32_to_extF80M( uint32_t a, extFloat80_t *zPtr )
+void f32_to_extF80M( float32_t a, extFloat80_t *zPtr )
 {
 
-    *zPtr = ui32_to_extF80( a );
+    *zPtr = f32_to_extF80( a );
 
 }
 
 #else
 
-void ui32_to_extF80M( uint32_t a, extFloat80_t *zPtr )
+void f32_to_extF80M( float32_t a, extFloat80_t *zPtr )
 {
     struct extFloat80M *zSPtr;
+    union ui32_f32 uA;
+    uint32_t uiA;
+    bool sign;
+    int_fast16_t exp;
+    uint32_t frac;
+    struct commonNaN commonNaN;
     uint_fast16_t uiZ64;
-    uint64_t sigZ;
-    int_fast8_t shiftDist;
+    uint32_t uiZ32;
+    struct exp16_sig32 normExpSig;
 
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
     zSPtr = (struct extFloat80M *) zPtr;
-    uiZ64 = 0;
-    sigZ = 0;
-    if ( a ) {
-        shiftDist = softfloat_countLeadingZeros32( a );
-        uiZ64 = packToExtF80UI64( 0, 0x401E - shiftDist );
-        sigZ = (uint64_t) (a<<shiftDist)<<32;
+    uA.f = a;
+    uiA = uA.ui;
+    sign = signF32UI( uiA );
+    exp  = expF32UI( uiA );
+    frac = fracF32UI( uiA );
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
+    if ( exp == 0xFF ) {
+        if ( frac ) {
+            softfloat_f32UIToCommonNaN( uiA, &commonNaN );
+            softfloat_commonNaNToExtF80M( &commonNaN, zSPtr );
+            return;
+        }
+        uiZ64 = packToExtF80UI64( sign, 0x7FFF );
+        uiZ32 = 0x80000000;
+        goto uiZ;
     }
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
+    if ( ! exp ) {
+        if ( ! frac ) {
+            uiZ64 = packToExtF80UI64( sign, 0 );
+            uiZ32 = 0;
+            goto uiZ;
+        }
+        normExpSig = softfloat_normSubnormalF32Sig( frac );
+        exp = normExpSig.exp;
+        frac = normExpSig.sig;
+    }
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
+    uiZ64 = packToExtF80UI64( sign, exp + 0x3F80 );
+    uiZ32 = 0x80000000 | (uint32_t) frac<<8;
+ uiZ:
     zSPtr->signExp = uiZ64;
-    zSPtr->signif = sigZ;
+    zSPtr->signif = (uint64_t) uiZ32<<32;
 
 }
 

@@ -5,7 +5,7 @@ This C source file is part of the SoftFloat IEEE Floating-Point Arithmetic
 Package, Release 3e, by John R. Hauser.
 
 Copyright 2011, 2012, 2013, 2014, 2015, 2016 The Regents of the University of
-California.  All Rights Reserved.
+California.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,27 +34,54 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "platform.h"
 #include "internals.h"
+#include "specialize.h"
 #include "softfloat.h"
 
-float128_t ui32_to_f128( uint32_t a )
+uint_fast64_t f16_to_ui64_r_minMag( float16_t a, bool exact )
 {
-    uint_fast64_t uiZ64;
+    union ui16_f16 uA;
+    uint_fast16_t uiA;
+    int_fast8_t exp;
+    uint_fast16_t frac;
     int_fast8_t shiftDist;
-    union ui128_f128 uZ;
+    bool sign;
+    uint_fast32_t alignedSig;
 
-    uiZ64 = 0;
-    if ( a ) {
-        shiftDist = softfloat_countLeadingZeros32( a ) + 17;
-        uiZ64 =
-            packToF128UI64(
-                0, 0x402E - shiftDist, (uint_fast64_t) a<<shiftDist );
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
+    uA.f = a;
+    uiA = uA.ui;
+    exp  = expF16UI( uiA );
+    frac = fracF16UI( uiA );
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
+    shiftDist = exp - 0x0F;
+    if ( shiftDist < 0 ) {
+        if ( exact && (exp | frac) ) {
+            softfloat_exceptionFlags |= softfloat_flag_inexact;
+        }
+        return 0;
     }
-    uZ.ui.v64 = uiZ64;
-    uZ.ui.v0  = 0;
-    return uZ.f;
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
+    sign = signF16UI( uiA );
+    if ( sign || (exp == 0x1F) ) {
+        softfloat_raiseFlags( softfloat_flag_invalid );
+        return
+            (exp == 0x1F) && frac ? ui64_fromNaN
+                : sign ? ui64_fromNegOverflow : ui64_fromPosOverflow;
+    }
+    /*------------------------------------------------------------------------
+    *------------------------------------------------------------------------*/
+    alignedSig = (uint_fast32_t) (frac | 0x0400)<<shiftDist;
+    if ( exact && (alignedSig & 0x3FF) ) {
+        softfloat_exceptionFlags |= softfloat_flag_inexact;
+    }
+    return alignedSig>>10;
 
 }
 

@@ -4,8 +4,8 @@
 This C source file is part of the SoftFloat IEEE Floating-Point Arithmetic
 Package, Release 3e, by John R. Hauser.
 
-Copyright 2011, 2012, 2013, 2014, 2015, 2016 The Regents of the University of
-California.  All Rights Reserved.
+Copyright 2011, 2012, 2013, 2014 The Regents of the University of California.
+All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,26 +34,28 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "platform.h"
 #include "internals.h"
 #include "softfloat.h"
 
-float64_t ui32_to_f64( uint32_t a )
+bool f32_eq_signaling( float32_t a, float32_t b )
 {
-    uint_fast64_t uiZ;
-    int_fast8_t shiftDist;
-    union ui64_f64 uZ;
+    union ui32_f32 uA;
+    uint_fast32_t uiA;
+    union ui32_f32 uB;
+    uint_fast32_t uiB;
 
-    if ( ! a ) {
-        uiZ = 0;
-    } else {
-        shiftDist = softfloat_countLeadingZeros32( a ) + 21;
-        uiZ =
-            packToF64UI( 0, 0x432 - shiftDist, (uint_fast64_t) a<<shiftDist );
+    uA.f = a;
+    uiA = uA.ui;
+    uB.f = b;
+    uiB = uB.ui;
+    if ( isNaNF32UI( uiA ) || isNaNF32UI( uiB ) ) {
+        softfloat_raiseFlags( softfloat_flag_invalid );
+        return false;
     }
-    uZ.ui = uiZ;
-    return uZ.f;
+    return (uiA == uiB) || ! (uint32_t) ((uiA | uiB)<<1);
 
 }
 

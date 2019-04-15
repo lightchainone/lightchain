@@ -4,8 +4,8 @@
 This C source file is part of the SoftFloat IEEE Floating-Point Arithmetic
 Package, Release 3e, by John R. Hauser.
 
-Copyright 2011, 2012, 2013, 2014 The Regents of the University of California.
-All Rights Reserved.
+Copyright 2011, 2012, 2013, 2014, 2015 The Regents of the University of
+California.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,24 +34,28 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "platform.h"
 #include "internals.h"
 #include "softfloat.h"
 
-float32_t ui32_to_f32( uint32_t a )
+bool f16_eq_signaling( float16_t a, float16_t b )
 {
-    union ui32_f32 uZ;
+    union ui16_f16 uA;
+    uint_fast16_t uiA;
+    union ui16_f16 uB;
+    uint_fast16_t uiB;
 
-    if ( ! a ) {
-        uZ.ui = 0;
-        return uZ.f;
+    uA.f = a;
+    uiA = uA.ui;
+    uB.f = b;
+    uiB = uB.ui;
+    if ( isNaNF16UI( uiA ) || isNaNF16UI( uiB ) ) {
+        softfloat_raiseFlags( softfloat_flag_invalid );
+        return false;
     }
-    if ( a & 0x80000000 ) {
-        return softfloat_roundPackToF32( 0, 0x9D, a>>1 | (a & 1) );
-    } else {
-        return softfloat_normRoundPackToF32( 0, 0x9C, a );
-    }
+    return (uiA == uiB) || ! (uint16_t) ((uiA | uiB)<<1);
 
 }
 

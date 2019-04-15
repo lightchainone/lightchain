@@ -4,8 +4,8 @@
 This C source file is part of the SoftFloat IEEE Floating-Point Arithmetic
 Package, Release 3e, by John R. Hauser.
 
-Copyright 2011, 2012, 2013, 2014, 2015, 2016 The Regents of the University of
-California.  All Rights Reserved.
+Copyright 2011, 2012, 2013, 2014 The Regents of the University of California.
+All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -34,26 +34,45 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "platform.h"
 #include "internals.h"
+#include "specialize.h"
 #include "softfloat.h"
 
-extFloat80_t ui32_to_extF80( uint32_t a )
+bool f128_lt_quiet( float128_t a, float128_t b )
 {
-    uint_fast16_t uiZ64;
-    int_fast8_t shiftDist;
-    union { struct extFloat80M s; extFloat80_t f; } uZ;
+    union ui128_f128 uA;
+    uint_fast64_t uiA64, uiA0;
+    union ui128_f128 uB;
+    uint_fast64_t uiB64, uiB0;
+    bool signA, signB;
 
-    uiZ64 = 0;
-    if ( a ) {
-        shiftDist = softfloat_countLeadingZeros32( a );
-        uiZ64 = 0x401E - shiftDist;
-        a <<= shiftDist;
+    uA.f = a;
+    uiA64 = uA.ui.v64;
+    uiA0  = uA.ui.v0;
+    uB.f = b;
+    uiB64 = uB.ui.v64;
+    uiB0  = uB.ui.v0;
+    if ( isNaNF128UI( uiA64, uiA0 ) || isNaNF128UI( uiB64, uiB0 ) ) {
+        if (
+               softfloat_isSigNaNF128UI( uiA64, uiA0 )
+            || softfloat_isSigNaNF128UI( uiB64, uiB0 )
+        ) {
+            softfloat_raiseFlags( softfloat_flag_invalid );
+        }
+        return false;
     }
-    uZ.s.signExp = uiZ64;
-    uZ.s.signif = (uint_fast64_t) a<<32;
-    return uZ.f;
+    signA = signF128UI64( uiA64 );
+    signB = signF128UI64( uiB64 );
+    return
+        (signA != signB)
+            ? signA
+                  && (((uiA64 | uiB64) & UINT64_C( 0x7FFFFFFFFFFFFFFF ))
+                          | uiA0 | uiB0)
+            : ((uiA64 != uiB64) || (uiA0 != uiB0))
+                  && (signA ^ softfloat_lt128( uiA64, uiA0, uiB64, uiB0 ));
 
 }
 
